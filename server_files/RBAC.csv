@@ -1,0 +1,5 @@
+role,accessString
+powerUser,111001000
+manager,111111111
+ordinaryUser,110000000
+janitor,000111111
