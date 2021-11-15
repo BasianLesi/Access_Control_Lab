@@ -24,6 +24,8 @@ public class RMIClient {
     private Cipher c2;
     private byte[] encryptedDESkey;
     private byte[] signedKey;
+    static String files_path = "server_files";
+
 
     public RMIClient() throws RemoteException {
 
@@ -165,13 +167,13 @@ public class RMIClient {
         Key publicKey = keyPair.getPublic();
         Key privateKey = keyPair.getPrivate();
 
-        String outFile = "../server_files/Client_public";
+        String outFile = files_path + "/Client_public";
         PrintStream out = null;
         out = new PrintStream(new FileOutputStream(outFile + ".key"));
         out.write(publicKey.getEncoded());
         out.close();
 
-        outFile = "../server_files/Client_private";
+        outFile = files_path + "/Client_private";
         out = new PrintStream(new FileOutputStream(outFile + ".key"));
         out.write(privateKey.getEncoded());
         out.close();
@@ -215,7 +217,7 @@ public class RMIClient {
         c1 = null;
         byte[] key = null;
         try{
-            PublicKey server_pub = loadPublicKeyFromFile(Paths.get("../server_files/Server_public.key"));
+            PublicKey server_pub = loadPublicKeyFromFile(Paths.get(files_path + "/Server_public.key"));
             c1 = Cipher.getInstance("RSA/ECB/PKCS1Padding");
             c1.init(Cipher.ENCRYPT_MODE, server_pub);
             key = c1.doFinal(DESkey.getEncoded());
@@ -228,12 +230,12 @@ public class RMIClient {
 
     private void signKey(byte[] encryptedDESkey) throws NoSuchAlgorithmException, IOException, InvalidKeySpecException, InvalidKeyException, SignatureException {
         Signature sign = Signature.getInstance("SHA256withRSA");
-        PrivateKey client_pvt = loadPrivateKeyFromFile(Paths.get("../server_files/Client_private.key"));
+        PrivateKey client_pvt = loadPrivateKeyFromFile(Paths.get(files_path + "/Client_private.key"));
         sign.initSign(client_pvt);
         sign.update(encryptedDESkey);
         OutputStream out = null;
         try {
-            String outFile = "../server_files/signedKey";
+            String outFile = files_path + "/signedKey";
             out = new PrintStream(new FileOutputStream(outFile));
             byte[] signature = sign.sign();
             out.write(signature);

@@ -17,10 +17,7 @@ import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -33,6 +30,9 @@ public class ServerImpl implements Printer {
     String logUser;
     String logRole;
     String roleAccess;
+    String files_path = "../server_files";
+    boolean acl = false;
+
 
     enum Role
     {
@@ -50,6 +50,7 @@ public class ServerImpl implements Printer {
         createUserRoles();
         createACL();
         createRBAC();
+        getAccessMethod();
         UnicastRemoteObject.exportObject(this, 0);
     }
 
@@ -65,7 +66,7 @@ public class ServerImpl implements Printer {
 
         if(signatureVerify(encryptedDESkey)) {
             try{
-                privateKey = loadPrivateKeyFromFile(Paths.get("../server_files/Server_private.key"));
+                privateKey = loadPrivateKeyFromFile(Paths.get(files_path+"/Server_private.key"));
                 keyDecipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
                 keyDecipher.init(Cipher.DECRYPT_MODE, privateKey);
                 key = new SecretKeySpec(keyDecipher.doFinal(encryptedDESkey), "DES");
@@ -83,9 +84,13 @@ public class ServerImpl implements Printer {
     public boolean authenticateUser(String user, String password) throws IOException, NoSuchAlgorithmException {
         if(passwordCheck(user, password)){
             logUser = user;
-            logRole = getUserRole(logUser);
-            roleAccess = getRoleAccess(logRole);
-            System.out.println("logUser = " + logUser + "\nlogRole = " + logRole + "\nroleAccessString = " + roleAccess);
+            if(acl) {
+                roleAccess = getUserAccess(logUser);
+            }
+            else {
+                logRole = getUserRole(logUser);
+                roleAccess = getRoleAccess(logRole);
+            }
             return true;
         }
         return false;
@@ -260,13 +265,13 @@ public class ServerImpl implements Printer {
         Key publicKey = keyPair.getPublic();
         Key privateKey = keyPair.getPrivate();
 
-        String outFile = "../server_files/Server_public";
+        String outFile = files_path + "/Server_public";
         PrintStream out = null;
         out = new PrintStream(new FileOutputStream(outFile + ".key"));
         out.write(publicKey.getEncoded());
         out.close();
 
-        outFile = "../server_files/Server_private";
+        outFile = files_path + "/Server_private";
         out = new PrintStream(new FileOutputStream(outFile + ".key"));
         out.write(privateKey.getEncoded());
         out.close();
@@ -294,7 +299,7 @@ public class ServerImpl implements Printer {
         };
         String[] HEADERS = { "username", "password"};
 
-        FileWriter out = new FileWriter("../server_files/Passwords.csv");
+        FileWriter out = new FileWriter(files_path + "/Passwords.csv");
         try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
                 .withHeader(HEADERS))) {
             USER_PASSWORD_MAP.forEach((user, password) -> {
@@ -321,7 +326,7 @@ public class ServerImpl implements Printer {
         };
         String[] HEADERS = { "username", "role"};
 
-        FileWriter out = new FileWriter("../server_files/User_Roles.csv");
+        FileWriter out = new FileWriter(files_path + "/User_Roles.csv");
         try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
                 .withHeader(HEADERS))) {
             USER_ROLE_MAP.forEach((user, role) -> {
@@ -348,7 +353,7 @@ public class ServerImpl implements Printer {
         };
         String[] HEADERS = { "name", "accessString"};
 
-        FileWriter out = new FileWriter("../server_files/ACL.csv");
+        FileWriter out = new FileWriter(files_path + "/ACL.csv");
         try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
                 .withHeader(HEADERS))) {
             ACCESS_CONTROL_LIST.forEach((author, title) -> {
@@ -372,7 +377,7 @@ public class ServerImpl implements Printer {
         };
         String[] HEADERS = { "role", "accessString"};
 
-        FileWriter out = new FileWriter("../server_files/RBAC.csv");
+        FileWriter out = new FileWriter(files_path + "/RBAC.csv");
         try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
                 .withHeader(HEADERS))) {
             ACCESS_CONTROL_LIST.forEach((author, title) -> {
@@ -386,7 +391,7 @@ public class ServerImpl implements Printer {
     }
 
     private String getUserPassword(String user) throws IOException {
-        Reader in  = new FileReader("../server_files/Passwords.csv");
+        Reader in  = new FileReader(files_path + "/Passwords.csv");
         Iterable<CSVRecord> records = CSVFormat.DEFAULT
                 .withHeader("username", "password").parse(in);
         for (CSVRecord record : records) {
@@ -403,9 +408,8 @@ public class ServerImpl implements Printer {
         return "UserNotFound";
     }
 
-    private @Nullable
-    String getUserRole(String user) throws IOException {
-        Reader in  = new FileReader("../server_files/User_Roles.csv");
+    private @Nullable String getUserRole(String user) throws IOException {
+        Reader in  = new FileReader(files_path + "/User_Roles.csv");
         Iterable<CSVRecord> records = CSVFormat.DEFAULT
                 .withHeader("username", "role").parse(in);
         for (CSVRecord record : records) {
@@ -415,10 +419,6 @@ public class ServerImpl implements Printer {
             if (username.equals(user))
             {
                 return role;
-//                if(role.equals("manager")) return Role.manager;
-//                if(role.equals("janitor")) return Role.janitor;
-//                if(role.equals("powerUser")) return Role.powerUser;
-//                if(role.equals("ordinaryUser")) return Role.ordinaryUser;
             }
         }
         System.out.println("User role Was not found");
@@ -426,7 +426,7 @@ public class ServerImpl implements Printer {
     }
 
     private @Nullable String getRoleAccess(String role) throws IOException {
-        Reader in  = new FileReader("../server_files/RBAC.csv");
+        Reader in  = new FileReader(files_path + "/RBAC.csv");
         Iterable<CSVRecord> records = CSVFormat.DEFAULT
                 .withHeader("role", "accessString").parse(in);
         for (CSVRecord record : records) {
@@ -439,6 +439,22 @@ public class ServerImpl implements Printer {
             }
         }
         System.out.println("Role accessString was not found");
+        return null;
+    }
+
+    private @Nullable String getUserAccess(String user) throws IOException {
+        Reader in  = new FileReader(files_path + "/ACL.csv");
+        Iterable<CSVRecord> records = CSVFormat.DEFAULT
+                .withHeader("name", "accessString").parse(in);
+        for (CSVRecord record : records) {
+            String username = record.get("name");
+            String accessString = record.get("accessString");
+            if (username.equals(user))
+            {
+                return accessString;
+            }
+        }
+        System.out.println("User name Was not found");
         return null;
     }
 
@@ -464,10 +480,10 @@ public class ServerImpl implements Printer {
 
     private boolean signatureVerify(byte[] key) throws NoSuchAlgorithmException, IOException, InvalidKeySpecException, InvalidKeyException, SignatureException {
         Signature sign = Signature.getInstance("SHA256withRSA");
-        PublicKey client_pub = loadPublicKeyFromFile(Paths.get("../server_files/Client_public.key"));
+        PublicKey client_pub = loadPublicKeyFromFile(Paths.get(files_path + "/Client_public.key"));
         sign.initVerify(client_pub);
         sign.update(key);
-        byte[] bytes = Files.readAllBytes(Paths.get("../server_files/signedKey"));
+        byte[] bytes = Files.readAllBytes(Paths.get(files_path + "/signedKey"));
         if (sign.verify(bytes)) {
             System.out.println("Key verified");
             return true;
@@ -482,7 +498,7 @@ public class ServerImpl implements Printer {
 
         if(signatureVerify(encryptedDESkey)) {
             try{
-                privateKey = loadPrivateKeyFromFile(Paths.get("../server_files/Server_private.key"));
+                privateKey = loadPrivateKeyFromFile(Paths.get(files_path + "/Server_private.key"));
                 keyDecipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
                 keyDecipher.init(Cipher.DECRYPT_MODE, privateKey);
                 key = new SecretKeySpec(keyDecipher.doFinal(encryptedDESkey), "DES");
@@ -508,6 +524,14 @@ public class ServerImpl implements Printer {
         return false;
     }
 
+    private void getAccessMethod(){
+        Scanner in = new Scanner(System.in);
+        System.out.println("Choose access control method: \n Press 1: Access Control List \n Default: Role Based Access Control");
+        int choice = in.nextInt();
+        if (choice == 2) acl = false;
+        in.close();
+    }
+
     private String hash(String password) throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         byte[]hashInBytes = md.digest(password.getBytes(StandardCharsets.US_ASCII));
@@ -519,10 +543,10 @@ public class ServerImpl implements Printer {
         while (true) {
             if (getUserPassword(user).equals(hash(pass))) {
                 System.out.println("Welcome " + "\u001B[32m" +user+ "\u001B[0m" + " you are Authenticated!");
-                System.out.println("\nUser Password hashed = " + hash(pass) +"\n userPasswordFromfile = " + getUserPassword(user) );
+//                System.out.println("\nUser Password hashed = " + hash(pass) +"\n userPasswordFromfile = " + getUserPassword(user) );
                 return true;
             } else {
-                System.out.println("Access Denied: \nUser Password hashed = " + hash(pass) +"\n userPasswordFromfile = " + getUserPassword(user) );
+//                System.out.println("Access Denied: \nUser Password hashed = " + hash(pass) +"\n userPasswordFromfile = " + getUserPassword(user) );
                 return false;
             }
         }
