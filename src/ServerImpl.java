@@ -1,8 +1,8 @@
 
 import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 import org.jetbrains.annotations.Nullable;
+
 
 import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
@@ -11,15 +11,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.Scanner;
+
 
 public class ServerImpl implements Printer {
 
@@ -31,25 +29,16 @@ public class ServerImpl implements Printer {
     String logRole;
     String roleAccess;
     String files_path = "../server_files";
+    String noPermissionMessage;
+    String authFailed = "Client message security authentication \u001B[31m FAILED \u001B[0m";
     boolean acl = false;
-
-
-    enum Role
-    {
-        manager, janitor, powerUser, ordinaryUser
-    }
 
     enum Function
     {
         print, queue, topQueue, start, stop, restart, status, readConfig, setConfig
     }
 
-    public ServerImpl() throws IOException, NoSuchAlgorithmException {
-        keyPairGenerator();
-        createUserPasswords();
-        createUserRoles();
-        createACL();
-        createRBAC();
+    public ServerImpl() throws IOException {
         getAccessMethod();
         UnicastRemoteObject.exportObject(this, 0);
     }
@@ -84,6 +73,7 @@ public class ServerImpl implements Printer {
     public boolean authenticateUser(String user, String password) throws IOException, NoSuchAlgorithmException {
         if(passwordCheck(user, password)){
             logUser = user;
+            noPermissionMessage = "User: \u001B[32m" + logUser + "\u001B[0m has \u001B[31m no permission \u001B[0m to execute function";
             if(acl) {
                 roleAccess = getUserAccess(logUser);
             }
@@ -106,10 +96,10 @@ public class ServerImpl implements Printer {
                 i++;
                 return "print() function executed";
             }
-            System.err.println("Client message security authentication FAILED");
+            System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.err.println("User: " + logUser + " has no permission to execute function");
+        System.out.println(noPermissionMessage);
         return "You don't have permission to user this function";
 
 
@@ -125,10 +115,10 @@ public class ServerImpl implements Printer {
                 i++;
                 return "queue() function executed";
             }
-            System.err.println("Client message security authentication FAILED");
+            System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.err.println("User: " + logUser + " has no permission to execute function");
+        System.out.println(noPermissionMessage);
         return "You don't have permission to user this function";
     }
 
@@ -142,10 +132,10 @@ public class ServerImpl implements Printer {
                 i++;
                 return 1;
             }
-            System.err.println("Client message security authentication FAILED");
+            System.err.println(authFailed);
             return 0;
         }
-        System.err.println("User: " + logUser + " has no permission to execute function");
+        System.out.println(noPermissionMessage);
         return 2;
     }
 
@@ -159,10 +149,10 @@ public class ServerImpl implements Printer {
                 i++;
                 return "start() function executed";
             }
-            System.err.println("Client message security authentication FAILED");
+            System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.err.println("User: " + logUser + " has no permission to execute function");
+        System.out.println(noPermissionMessage);
         return "You don't have permission to user this function";
 
     }
@@ -177,10 +167,10 @@ public class ServerImpl implements Printer {
                 i++;
                 return "stop() function executed";
             }
-            System.err.println("Client message security authentication FAILED");
+            System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.err.println("User: " + logUser + " has no permission to execute function");
+        System.out.println(noPermissionMessage);
         return "You don't have permission to user this function";
 
     }
@@ -195,10 +185,10 @@ public class ServerImpl implements Printer {
                 i++;
                 return "restart() function executed";
             }
-            System.err.println("Client message security authentication FAILED");
+            System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.err.println("User: " + logUser + " has no permission to execute function");
+        System.out.println(noPermissionMessage);
         return "You don't have permission to user this function";
     }
 
@@ -212,10 +202,10 @@ public class ServerImpl implements Printer {
                 i++;
                 return "status() function executed";
             }
-            System.err.println("Client message security authentication FAILED");
+            System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.err.println("User: " + logUser + " has no permission to execute function");
+        System.err.println(noPermissionMessage);
         return "You don't have permission to user this function";
 
     }
@@ -230,10 +220,10 @@ public class ServerImpl implements Printer {
                 i++;
                 return "readConfig function executed";
             }
-            System.err.println("Client message security authentication FAILED");
+            System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.err.println("User: " + logUser + " has no permission to execute function");
+        System.err.println(noPermissionMessage);
         return "You don't have permission to user this function";
 
     }
@@ -247,147 +237,11 @@ public class ServerImpl implements Printer {
                 i++;
                 return "setConfig function executed";
             }
-            System.err.println("Client message security authentication FAILED");
+            System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.err.println("User: " + logUser + " has no permission to execute function");
+        System.err.println(noPermissionMessage);
         return "You don't have permission to user this function";
-    }
-
-    private void keyPairGenerator() throws IOException, NoSuchAlgorithmException {
-
-        //Generates Private and Public key URL: https://www.novixys.com/blog/how-to-generate-rsa-keys-java/
-        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
-        kpg.initialize(2048);
-        KeyPair keyPair = kpg.generateKeyPair();
-
-        //Get public and private keys
-        Key publicKey = keyPair.getPublic();
-        Key privateKey = keyPair.getPrivate();
-
-        String outFile = files_path + "/Server_public";
-        PrintStream out = null;
-        out = new PrintStream(new FileOutputStream(outFile + ".key"));
-        out.write(publicKey.getEncoded());
-        out.close();
-
-        outFile = files_path + "/Server_private";
-        out = new PrintStream(new FileOutputStream(outFile + ".key"));
-        out.write(privateKey.getEncoded());
-        out.close();
-
-        System.err.println("Private key format: " + privateKey.getFormat());
-        // prints "Private key format: PKCS#8" on my machine
-
-        System.err.println("Public key format: " + publicKey.getFormat());
-        // prints "Public key format: X.509" on my machine
-    }
-
-    private void createUserPasswords() throws IOException, NoSuchAlgorithmException {
-
-
-        Map<String, String> USER_PASSWORD_MAP = new HashMap<>() {
-            {
-                put("Alice", hash("AlicePass"));
-                put("Bob", hash("BobPass"));
-                put("Cecilia", hash("CeciliaPass"));
-                put("David", hash("DavidPass"));
-                put("Erica", hash("EricaPass"));
-                put("Fred", hash("FredPass"));
-                put("George", hash("GeorgePass"));
-            }
-        };
-        String[] HEADERS = { "username", "password"};
-
-        FileWriter out = new FileWriter(files_path + "/Passwords.csv");
-        try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
-                .withHeader(HEADERS))) {
-            USER_PASSWORD_MAP.forEach((user, password) -> {
-                try {
-                    printer.printRecord(user, password);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            });
-        }
-    }
-
-    private void createUserRoles() throws IOException {
-        Map<String, String> USER_ROLE_MAP = new HashMap<>() {
-            {
-                put("Alice",    "manager");
-                put("Bob",      "janitor");
-                put("Cecilia",  "powerUser");
-                put("David",    "ordinaryUser");
-                put("Erica",    "ordinaryUser");
-                put("Fred",     "ordinaryUser");
-                put("George",   "ordinaryUser");
-            }
-        };
-        String[] HEADERS = { "username", "role"};
-
-        FileWriter out = new FileWriter(files_path + "/User_Roles.csv");
-        try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
-                .withHeader(HEADERS))) {
-            USER_ROLE_MAP.forEach((user, role) -> {
-                try {
-                    printer.printRecord(user, role);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            });
-        }
-    }
-
-    private void createACL() throws IOException {
-        Map<String, String> ACCESS_CONTROL_LIST = new HashMap<>() {
-            {
-                put("Alice",    "111111111");
-                put("Bob",      "000111111");
-                put("Cecilia",  "111001000");
-                put("David",    "110000000");
-                put("Erica",    "110000000");
-                put("Fred",     "110000000");
-                put("George",   "110000000");
-            }
-        };
-        String[] HEADERS = { "name", "accessString"};
-
-        FileWriter out = new FileWriter(files_path + "/ACL.csv");
-        try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
-                .withHeader(HEADERS))) {
-            ACCESS_CONTROL_LIST.forEach((author, title) -> {
-                try {
-                    printer.printRecord(author, title);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            });
-        }
-    }
-
-    private void createRBAC() throws IOException {
-        Map<String, String> ACCESS_CONTROL_LIST = new HashMap<>() {
-            {
-                put("manager",       "111111111");
-                put("janitor",       "000111111");
-                put("powerUser",     "111001000");
-                put("ordinaryUser",  "110000000");
-            }
-        };
-        String[] HEADERS = { "role", "accessString"};
-
-        FileWriter out = new FileWriter(files_path + "/RBAC.csv");
-        try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
-                .withHeader(HEADERS))) {
-            ACCESS_CONTROL_LIST.forEach((author, title) -> {
-                try {
-                    printer.printRecord(author, title);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            });
-        }
     }
 
     private String getUserPassword(String user) throws IOException {
@@ -491,25 +345,6 @@ public class ServerImpl implements Printer {
         return false;
     }
 
-    private boolean VerifyDESkey(byte [] encryptedDESkey) throws NoSuchAlgorithmException, IOException, InvalidKeySpecException, SignatureException, InvalidKeyException {
-        SecretKey key = null;
-        PrivateKey privateKey = null;
-        keyDecipher = null;
-
-        if(signatureVerify(encryptedDESkey)) {
-            try{
-                privateKey = loadPrivateKeyFromFile(Paths.get(files_path + "/Server_private.key"));
-                keyDecipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-                keyDecipher.init(Cipher.DECRYPT_MODE, privateKey);
-                key = new SecretKeySpec(keyDecipher.doFinal(encryptedDESkey), "DES");
-                DESkey = key;
-                return true;
-            }catch (Exception e){
-                System.err.println("Exception decrypting des key: " + e.getMessage());
-            }
-        }
-        return false;
-    }
 
     private boolean checkToken(byte [] token, String string, int i) throws InvalidKeyException, IllegalBlockSizeException, BadPaddingException, NoSuchPaddingException, NoSuchAlgorithmException {
         c1 = Cipher.getInstance("DES/ECB/PKCS5Padding");
@@ -517,8 +352,9 @@ public class ServerImpl implements Printer {
         byte[] bytesDecrypted = c1.doFinal(token);
         String s = new String(bytesDecrypted, StandardCharsets.UTF_8);
         String compare = string + i;
-        System.out.println(compare + " == " + s);
+
         if (s.equals(compare)){
+            System.out.println("\u001B[32m" + string+"() \u001B[0m function was executed by " + "\u001B[32m" +logUser+ "\u001B[0m");
             return true;
         }
         return false;
