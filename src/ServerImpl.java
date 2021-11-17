@@ -31,12 +31,17 @@ public class ServerImpl implements Printer {
     String files_path = "../server_files";
     String noPermissionMessage;
     String authFailed = "Client message security authentication \u001B[31m FAILED \u001B[0m";
+    String[] function = {" ", "print()", "queue()", "topQueue()", "start()", "stop()", "restart()", "status()", "readConfig()", "setConfig()"};
+    String function_used = function[0];
+
     boolean acl = false;
 
     enum Function
     {
         print, queue, topQueue, start, stop, restart, status, readConfig, setConfig
     }
+
+
 
     public ServerImpl() throws IOException {
         getAccessMethod();
@@ -73,7 +78,6 @@ public class ServerImpl implements Printer {
     public boolean authenticateUser(String user, String password) throws IOException, NoSuchAlgorithmException {
         if(passwordCheck(user, password)){
             logUser = user;
-            noPermissionMessage = "User: \u001B[32m" + logUser + "\u001B[0m has \u001B[31m no permission \u001B[0m to execute function";
             if(acl) {
                 roleAccess = getUserAccess(logUser);
             }
@@ -88,7 +92,7 @@ public class ServerImpl implements Printer {
 
     @Override
     public String print(String filename, String printer, byte[] token) throws IllegalBlockSizeException, BadPaddingException, InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException {
-
+        function_used = function[1];
         char c = roleAccess.charAt(Function.print.ordinal());
         int a = Character.getNumericValue(c);
         if(a==1){
@@ -99,15 +103,17 @@ public class ServerImpl implements Printer {
             System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.out.println(noPermissionMessage);
+        printNoPermissionMessage();
         return "You don't have permission to user this function";
 
 
     }
 
+
+
     @Override
     public String queue(String printer, byte[] token) throws IllegalBlockSizeException, NoSuchPaddingException, BadPaddingException, NoSuchAlgorithmException, InvalidKeyException {
-
+        function_used = function[2];
         char c = roleAccess.charAt(Function.queue.ordinal());
         int a = Character.getNumericValue(c);
         if(a==1){
@@ -118,13 +124,13 @@ public class ServerImpl implements Printer {
             System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.out.println(noPermissionMessage);
+        printNoPermissionMessage();
         return "You don't have permission to user this function";
     }
 
     @Override
     public int topQueue(String printer, int job, byte[] token) throws IllegalBlockSizeException, NoSuchPaddingException, BadPaddingException, NoSuchAlgorithmException, InvalidKeyException {
-
+        function_used = function[3];
         char c = roleAccess.charAt(Function.topQueue.ordinal());
         int a = Character.getNumericValue(c);
         if(a==1){
@@ -135,13 +141,13 @@ public class ServerImpl implements Printer {
             System.err.println(authFailed);
             return 0;
         }
-        System.out.println(noPermissionMessage);
+        printNoPermissionMessage();
         return 2;
     }
 
     @Override
     public String start(byte[] token) throws IllegalBlockSizeException, NoSuchPaddingException, BadPaddingException, NoSuchAlgorithmException, InvalidKeyException {
-
+        function_used = function[4];
         char c = roleAccess.charAt(Function.start.ordinal());
         int a = Character.getNumericValue(c);
         if(a==1){
@@ -152,14 +158,14 @@ public class ServerImpl implements Printer {
             System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.out.println(noPermissionMessage);
+        printNoPermissionMessage();
         return "You don't have permission to user this function";
 
     }
 
     @Override
     public String stop(byte[] token) throws IllegalBlockSizeException, NoSuchPaddingException, BadPaddingException, NoSuchAlgorithmException, InvalidKeyException {
-
+        function_used = function[5];
         char c = roleAccess.charAt(Function.stop.ordinal());
         int a = Character.getNumericValue(c);
         if(a==1){
@@ -170,14 +176,14 @@ public class ServerImpl implements Printer {
             System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.out.println(noPermissionMessage);
+        printNoPermissionMessage();
         return "You don't have permission to user this function";
 
     }
 
     @Override
     public String restart(byte[] token) throws IllegalBlockSizeException, NoSuchPaddingException, BadPaddingException, NoSuchAlgorithmException, InvalidKeyException {
-
+        function_used = function[6];
         char c = roleAccess.charAt(Function.restart.ordinal());
         int a = Character.getNumericValue(c);
         if(a==1){
@@ -188,13 +194,13 @@ public class ServerImpl implements Printer {
             System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.out.println(noPermissionMessage);
+        printNoPermissionMessage();
         return "You don't have permission to user this function";
     }
 
     @Override
     public String status(String printer, byte[] token) throws IllegalBlockSizeException, NoSuchPaddingException, BadPaddingException, NoSuchAlgorithmException, InvalidKeyException {
-
+        function_used = function[7];
         char c = roleAccess.charAt(Function.status.ordinal());
         int a = Character.getNumericValue(c);
         if(a==1){
@@ -205,14 +211,14 @@ public class ServerImpl implements Printer {
             System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.err.println(noPermissionMessage);
+        printNoPermissionMessage();
         return "You don't have permission to user this function";
 
     }
 
     @Override
     public String readConfig(String parameter, byte[] token) throws IllegalBlockSizeException, NoSuchPaddingException, BadPaddingException, NoSuchAlgorithmException, InvalidKeyException {
-
+        function_used = function[8];
         char c = roleAccess.charAt(Function.readConfig.ordinal());
         int a = Character.getNumericValue(c);
         if(a==1){
@@ -223,13 +229,14 @@ public class ServerImpl implements Printer {
             System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.err.println(noPermissionMessage);
+        printNoPermissionMessage();
         return "You don't have permission to user this function";
 
     }
 
     @Override
     public String setConfig (String parameter, String value, byte[] token) throws IllegalBlockSizeException, NoSuchPaddingException, BadPaddingException, NoSuchAlgorithmException, InvalidKeyException {
+        function_used = function[9];
         char c = roleAccess.charAt(Function.setConfig.ordinal());
         int a = Character.getNumericValue(c);
         if(a==1){
@@ -240,7 +247,7 @@ public class ServerImpl implements Printer {
             System.err.println(authFailed);
             return "Message security authentication FAILED";
         }
-        System.err.println(noPermissionMessage);
+        printNoPermissionMessage();
         return "You don't have permission to user this function";
     }
 
@@ -362,10 +369,22 @@ public class ServerImpl implements Printer {
 
     private void getAccessMethod(){
         Scanner in = new Scanner(System.in);
-        System.out.println("Choose access control method: \n Press 1: Access Control List \n Default: Role Based Access Control");
+        System.out.println("Choose access control method: \n Press 1: Access Control List \n Press 2 or other: Role Based Access Control");
         int choice = in.nextInt();
-        if (choice == 2) acl = false;
+        if (choice == 1)
+        {
+            acl = true;
+            System.out.println("\u001B[32mAccess Control List\u001B[0m mode selected");
+        }else {
+            System.out.println("\u001B[36mRole Based Access Control\u001B[0m mode selected");
+        }
         in.close();
+    }
+
+    private void printNoPermissionMessage()
+    {
+        noPermissionMessage = "User: \u001B[32m" + logUser + "\u001B[0m has \u001B[31m no permission \u001B[0m to execute \u001B[32m" + function_used + "\u001B[0m function";
+        System.out.println(noPermissionMessage);
     }
 
     private String hash(String password) throws NoSuchAlgorithmException {
