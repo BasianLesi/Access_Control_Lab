@@ -1,5 +1,5 @@
 # Access_Control_Lab
-
+<pre>
 First you need to start the server and then the client\
 
 HOW TO START SERVER:\
@@ -30,5 +30,5 @@ David         DavidPass\
 Erica         EricaPass\
 Fred          FredPass\
 George        GeorgePass\
-
+</pre>
 
